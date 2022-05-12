@@ -1,11 +1,9 @@
 (function () {
-	// this plugin just contain random stuff all combined together. dont judge.
 	// !warning, terrible code ahead!
 	let MeshToolsAction;
 	let GensAction;
 	let about = 
-`
-\`Modeling Tools:\`\n
+`\`Modeling Tools:\`\n
 **To Sphere**: Casts selected vertices into a sphere based on an influence.\n
 **Poke Faces**: Creates a Fan out of selected faces.\n
 **Triangles To Quads**: Trys to dissolve adjacent triangles into a quad.\n
@@ -21,16 +19,17 @@
 **Terrain**: Generates Terrains procedurally with fully customized settings.\n
 **Terrain Style Editor**: Configure the values of the style \`Custom\` for the Terrain Generator.\n
 **Text Mesh**: Generate a mesh representation of a text with Opentype Fonts and custom settings.\n
-*An OpenType Font is a format for scalable computer fonts that are stored in JSON files, a good converter is \`http://gero3.github.io/facetype.js/\`*
-
-`;
+*An OpenType Font is a format for scalable comuter fonts that are stored in JSON files, a good converter is \`http://gero3.github.io/facetype.js/*\n
+**XYZ Math Surface Function**: Creates an xyz surface based on given inputs. Also contains already-made 23 presets!\n
+**Quick Primitives [Polyhedron]**: generate the basic 4 regular polyhedron with custom detail.\n
+**Quick Primitives [Torus Knot]**: generates a p-q torus knot with custom settings.\n`;
 	Plugin.register('mesh_tools', {
 		title: 'MTools',
 		icon: 'fas.fa-vector-square',
 		author: 'Malik12tree',
 		description: 'Adds helpful Modeling Tools, Operators and Generators for Meshs!',
 		about,
-		version: '1.0.0',
+		version: '1.0.2',
 		variant: "both",
 		tags: ["Format: Generic Model", "Edit"],
 		onload() {
@@ -87,6 +86,11 @@
 						{blend: .3, height: .5, 	color: 	new THREE.Color(.15, .87, .113)},
 						{blend: 1, height: .6, 		color: 		new THREE.Color(.113, .87, .137)},
 						{blend: .1, height: 1, 		color: 		new THREE.Color(.39, .28, .12)},
+					],
+					Grass: [
+						{blend: 1, height: .2, 	color: 	new THREE.Color(.69, 1, .11)},
+						{blend: 1, height: .375, 	color: 	new THREE.Color(.51, 1, .14)},
+						{blend: 1, height: .375, 	color: 	new THREE.Color(.17, .63, .054)},
 					],
 					Desert: [
 						{blend: 0, height: 0, 	color: 	new THREE.Color(0.54, 0.42, 0.17)},
@@ -275,8 +279,11 @@
 										// terrain.settings[key].value = _out[key];
 										let c = {};
 										for (const _key in terrain.settings[key]) {
-											if (_key != 'condition') {
+											if (_key != 'condition' && _key != 'value') {
 												c[_key] = terrain.settings[key][_key];
+											}
+											if ( _key == 'value') {
+												c[_key] = _out[key];
 											}
 										}
 										_form_[key] = c;
@@ -381,10 +388,12 @@
 					return a + this.smootherstep(x) * (b-a);
 				},
 				seed: function(){
+					delete this.gradients;
+					delete this.memory;
 					this.gradients = {};
 					this.memory = {};
 				},
-				get: function(x, y, z=0) {
+				get: function(x=0, y=0, z=0) {
 					if (this.memory.hasOwnProperty([x,y,z]))
 						return this.memory[[x,y,z]];
 					let xf = Math.floor(x);
@@ -423,9 +432,6 @@
 			}
 
 			// end
-			/**
-			 * @todo Hills
-			 */
 
 			new TerrainGen({
 				name: 'Open Terrain',
@@ -437,7 +443,7 @@
 					lacunarity: {label: 'lacunarity', type: 'number', min: 0, value: 2},
 					min: {label: 'Min Level', type: 'number', min: 0, max: .9, step: .1,value: .1},
 				},
-				noise: function(s, m = false) {
+				noise: function(s, addOn) {
 					if (s.scale <= 0) s.scale = 1E-6
 					let map = {};
 
@@ -469,10 +475,16 @@
 						for (let x = s.width-1; x >= 0; x--) {
 							map[ [x,y] ] = THREE.Math.inverseLerp(MinHeight, MaxHeight, map[ [x,y] ]);
 							// custom functions
-							if (m) map[ [x,y] ] = eval(m);
+							if (typeof addOn == "string") {
+								map[ [x,y] ] = eval(addOn);
+							} else if (typeof addOn == "function") {
+								map[ [x,y] ] = addOn(map[ [x,y] ],x,y);
+							}
+				
 							// falloff
 							let f = falloffMap(x,y, s.width, s.height);
 							if (s.falloff) map[ [x,y] ] = Math.clamp(map[ [x,y] ] - f, 0,1);
+				
 							// min/max level
 							if (s.min || s.max) {
 								const min = s.min != undefined ? s.min: 0;
@@ -517,12 +529,39 @@
 					style: "Desert"
 				},
 				noise: function(s) {
-					s.max = .75;
+					s.max = .7;
 					s.min = 0;
 					let noise = TerrainGen.all[0].noise(s);
 					return noise;
 				}
 			});
+			new TerrainGen({
+				name: 'River',
+				settings: {
+					time: {label: 'Time', type: 'number', min: 0, value: 0, step: 1},
+					scale: {label: 'Scale', type: 'number', min: 0, value: 25},
+					octaves: {label: 'Octaves', type: 'number', min: 0, value: 5},
+					persistance: {label: 'Persistancy', type: 'number', min: 0, max: 1, step: .1,value: .4},
+					lacunarity: {label: 'lacunarity', type: 'number', min: 0, value: 2},
+					turbpower: {label: 'Turb-Power', type: 'number', min: 0, value: 1,step: .1}
+				},
+				suggested: {
+					style: "Ice",
+					scale: 15,
+					multiplier: 3,
+					lacunarity: 2,
+				},
+				noise: function(s) {
+					let noise = TerrainGen.all[0].noise(s, function(val, x,y) {
+						let xyValue = (x / s.width) + (y / s.height) + (s.turbpower *val);
+						let sineValue = Math.abs(Math.cos(xyValue * Math.PI));
+						return sineValue;
+					});
+					
+					return noise;
+				}
+			});
+
 			TerrainGen.init();
 			let children = [];
 			let UVchildren = [];
@@ -681,7 +720,8 @@
 												mesh.addFaces(new_quad)
 												delete mesh.faces[currentAjcFace.key];
 												delete mesh.faces[_face];
-											}
+												break;
+											} 
 										}
 									}
 									
@@ -715,9 +755,6 @@
 			function cross(pointA, pointB) {
 				return (pointA[0]*pointB[1] - pointA[1]*pointB[0]);
 			}
-			function dot(pointA, pointB) {
-				return (pointA[0]*pointB[0] + pointA[1]*pointB[1]);
-			}
 			// Earcut algorithm
 			function Triangulate(polygon, normal) {
 				/* found out that BB only supports quads/tris
@@ -725,40 +762,38 @@
 				let vertices = polygon;
 				let indexs = [];
 				let triangles = [];
-				if (normal[1] >= 0) {
-					// winding order thing
-					vertices.reverse();
-				}
+				// if (normal[1] > 0) {
+				// 	// winding order thing
+				// 	vertices.reverse();
+				// }
 				for (let i = 0; i < vertices.length; i++) indexs.push(i);
 				let si = 0;
-				// 1000 is a safety limit just incase yk.
+				
+				// comute coplanar position
+				let plane = new THREE.Plane();
+				plane.setFromCoplanarPoints(polygon[0].V3_toThree(),polygon[1].V3_toThree(),polygon[2].V3_toThree());
+				let rot = cameraTargetToRotation([0, 0, 0], normal);
+				let e = new THREE.Euler(Math.degToRad(-rot[1] - 90), Math.degToRad(rot[0]), 0);
+				for (let i = 0; i < vertices.length; i++) {
+					vertices[i] = plane.projectPoint(vertices[i].V3_toThree(), Reusable.vec1).applyEuler(e).toArray();
+					vertices[i][1] = 0;
+				}
+
+				// 1000 is a safety limit
 				while (indexs.length > 3 && si <= 1000) {
 					for (let i = 0; i < indexs.length; i++) {
 						let earlyIndexs = getAdjacentVertices(indexs, i);
 						let CurrentTri = [vertices[earlyIndexs[0]],vertices[earlyIndexs[1]],vertices[earlyIndexs[2]]];
-						/* y axis matter and doesnt. 
-						so we need to project the face/vertices to an xz plane*/
-						if (normal != null) {
-							CurrentTri[0] = CurrentTri[0].V3_toThree().projectOnPlane(normal.V3_toThree()).toArray();
-							CurrentTri[1] = CurrentTri[1].V3_toThree().projectOnPlane(normal.V3_toThree()).toArray();
-							CurrentTri[2] = CurrentTri[2].V3_toThree().projectOnPlane(normal.V3_toThree()).toArray();
-							CurrentTri[0][1] = 0, CurrentTri[1][1] = 0, CurrentTri[2][1] = 0;
-						}
+						
 						// CHECK 1: if angle BAC (were "A" is the current vertex) is convex (< 180deg)
 						let pointA = [CurrentTri[2][0] - CurrentTri[1][0], CurrentTri[2][2] - CurrentTri[1][2]];
 						let pointB = [CurrentTri[0][0] - CurrentTri[1][0], CurrentTri[0][2] - CurrentTri[1][2]];
-						// if (pointA[0] == 0 && pointA[1] == 0) {
-						// 	pointA = [0,1];
-						// }
-						// if (pointB[0] == 0 && pointB[1] == 0) {
-						// 	pointB = [0,1];
-						// }
-						// let angle = Math.radToDeg(Math.acos((pointA[0]*pointB[0] + pointA[1]*pointB[1]) / (length(pointA[0], pointA[1]) * length(pointB[0], pointB[1]))));
+						
 						let crossP = cross(pointA, pointB);
 						if (crossP <= 0) {
 							// CHECK 2: if any of the vertices isnt inside the current triangle
 							let inTri = false;
-							for (let j = 0; j < indexs.length; j++) {
+							for (let j = 0; j < vertices.length; j++) {
 								if (earlyIndexs[0] == j || earlyIndexs[1] == j || earlyIndexs[2] == j) continue;
 								if (PointInTri(vertices[j], CurrentTri)) {
 									inTri = true;
@@ -766,7 +801,7 @@
 								}
 							}
 							if (!inTri) {
-								// Accepted; remove the current vertex and add a tri to the array
+								// Accepted; remove the current vertex and add the ear to the array
 								triangles.push(earlyIndexs.sort((a,b) => b - a))
 								indexs.splice(i,1);
 								break;
@@ -1353,9 +1388,9 @@
 								tmesh.localToWorld( t2 );
 
 								// f*ed up midpoint theroem
-								let pointA = new THREE.Vector3().lerpVectors(t0,     t1,         Math.random());
-								let pointB = new THREE.Vector3().lerpVectors(t0,     t2,         Math.random());
-								let pointF = new THREE.Vector3().lerpVectors(pointA, pointB,     Math.random());
+								let pointA = new THREE.Vector3().lervectors(t0,     t1,         Math.random());
+								let pointB = new THREE.Vector3().lervectors(t0,     t2,         Math.random());
+								let pointF = new THREE.Vector3().lervectors(pointA, pointB,     Math.random());
 											
 								let finalPoint = pointF;
 								// scatter on points
@@ -1392,12 +1427,12 @@
 					description: "Creates an array of copies of the base object, with each copy being offset from the previous one",
 					condition: operatorsCondition,
 					click(){
+						let selected = Mesh.selected;
+						selected.forEach(mesh => { mesh.mesh.geometry.comuteBoundingBox() });
 						/**
 						 * 
 						 * @param {THREE.Vector3} offset _
 						 */
-						let selected = Mesh.selected;
-						selected.forEach(mesh => { mesh.mesh.geometry.computeBoundingBox() });
 						function runEdit(offset = [1,0,0],count = 1,amend = false) {
 							offset = offset.V3_toThree();
 							
@@ -1479,7 +1514,7 @@
 						// UI PART
 						let c = function(s) { return $(document.createElement(s)) }
 						$("#tgse_levels").sortable({
-							stop(){ computeMTStyle() }
+							stop(){ comuteMTStyle() }
 						});
 						$("#tgse_addlevel")[0].onclick = function(v,col,b, t=true) {
 							let level = c("li");
@@ -1493,25 +1528,25 @@
 							color.jq.spectrum({
 								preferredFormat: "hex",
 								color: col || "#fff",
-								showInput: true,
+								showinput: true,
 								maxSelectionSize: 128,
 								resetText: tl('generic.reset'),
 								cancelText: tl('dialog.cancel'),
 								chooseText: tl('dialog.confirm'),
 								// !! EVERYTHING !!
-								hide: function() 	{ computeMTStyle() },
-								change: function()  { computeMTStyle() },
-								move: function() 	{ computeMTStyle() },
+								hide: function() 	{ comuteMTStyle() },
+								change: function()  { comuteMTStyle() },
+								move: function() 	{ comuteMTStyle() },
 							})
 							let height = c('input').attr({type:"number",min:0,max:100,step:.5,value:typeof v == "number"?v:100}).addClass('dark_bordered focusable_input');
 							let blending = c('input').attr({type:"number",min:0,max:100,step:.5,value:typeof b == "number"?b:100}).addClass('dark_bordered focusable_input');
 							
-							height[0].oninput = function() { computeMTStyle(); }
-							blending[0].oninput = function() { computeMTStyle(); }
+							height[0].oninput = function() { comuteMTStyle(); }
+							blending[0].oninput = function() { comuteMTStyle(); }
 							deleteBtn[0].onclick = function() {
 								ctx.clearRect(0,0,256,25);
 								level.remove(); 
-								computeMTStyle();
+								comuteMTStyle();
 							};
 							level
 							.addClass("tgseLevel")
@@ -1529,7 +1564,7 @@
 							
 							$("#tgse_levels").append(level[0])
 							if (t) {
-								computeMTStyle();
+								comuteMTStyle();
 							}
 						}
 						let cs = localStorage.mt_customStyle;								
@@ -1546,7 +1581,7 @@
 
 						// COMPILING part
 						
-						function computeMTStyle() {
+						function comuteMTStyle() {
 							let children = $("#tgse_levels").children();
 							customStyle = [];
 							const l = children.length;
@@ -1575,45 +1610,99 @@
 				})
 			);
 			generators.push("_");
-			/**
-			 * 
-			 * @param {THREE.BufferGeometry} geometry geometry should be non-indexed
-			 */
-			function GeometryThreeToBB(geometry) {
-				let mesh = new Mesh({vertices:{}});
-				
-				let vertices = geometry.getAttribute('position');
-				let vertexLength = vertices.count;
-
-				let newVertices = [];
-				let positions = {}; // remove duplicate vertices on the go
-				for (let i = 0; i < vertexLength; i++) {
-					let v = [
-						vertices.getX(i),
-						vertices.getY(i),
-						vertices.getZ(i)
-					]
-					// Object[myArray] is litterly saying: Object[myArray.toString()]: Object[`${myArray[0]},${myArray[1]},${myArray[2]}`]
-					if (positions[v]) {
-						newVertices.push(positions[v].key)
-					} else {
+			class ThreeToBB {
+				// non indexed geometry in threejs is basically geometry that: every three vertices make a face rather an indexed system
+				/**
+				 * 
+				 * @param {THREE.BufferGeometry} geometry
+				 */
+				static nonIndexed(geometry) {
+					let mesh = new Mesh({vertices:{}});
+					
+					let vertices = geometry.getAttribute('position');
+					let vertexLength = vertices.count;
+	
+					let newVertices = [];
+					let positions = {}; // remove duplicate vertices on the go
+					for (let i = 0; i < vertexLength; i++) {
+						let v = [
+							vertices.getX(i),
+							vertices.getY(i),
+							vertices.getZ(i)
+						]
+						// Object[myArray] is litterly saying: Object[myArray.toString()]: Object[`${myArray[0]},${myArray[1]},${myArray[2]}`]
+						if (positions[v]) {
+							newVertices.push(positions[v].key)
+						} else {
+							newVertices.push(
+								mesh.addVertices(v)[0]
+							)
+							positions[v] = {v, key: newVertices.last()};	
+						}
+					}
+					for (let i = 0; i < vertexLength; i+=3) {
+						let face = new MeshFace(mesh, {
+							vertices: [
+								newVertices[i+0],
+								newVertices[i+1],
+								newVertices[i+2]
+							]
+						});
+						mesh.addFaces(face);
+					}
+					return mesh;
+				}
+				// Quad Compatible: adjacent triangles in some geometries were originally quads
+				/**
+				 * 
+				 * @param {THREE.BufferGeometry} geometry
+				 */
+				static indexed(geometry, quadCompatible) {
+					let mesh = new Mesh({vertices:{}});
+					
+					let vertices = geometry.getAttribute('position');
+					let indices = geometry.getIndex();
+					let vertexLength = vertices.count;
+					let faceLength = indices.count;
+					indices = indices.array;
+	
+					let newVertices = [];
+					for (let i = 0; i < vertexLength; i++) {
+						let v = [
+							vertices.getX(i),
+							vertices.getY(i),
+							vertices.getZ(i)
+						]
 						newVertices.push(
 							mesh.addVertices(v)[0]
 						)
-						positions[v] = {v, key: newVertices.last()};	
 					}
+					if (quadCompatible) {
+						for (let i = 0; i < faceLength; i+=6) {
+							let face = new MeshFace(mesh, {
+								vertices: [
+									newVertices[indices[i+0]],
+									newVertices[indices[i+1]],
+									newVertices[indices[i+4]],
+									newVertices[indices[i+2]]
+								]
+							});
+							mesh.addFaces(face);
+						}
+					} else {
+						for (let i = 0; i < faceLength; i+=3) {
+							let face = new MeshFace(mesh, {
+								vertices: [
+									newVertices[indices[i+0]],
+									newVertices[indices[i+1]],
+									newVertices[indices[i+2]]
+								]
+							});
+							mesh.addFaces(face);
+						}
+					}
+					return mesh;
 				}
-				for (let i = 0; i < vertexLength; i+=3) {
-					let face = new MeshFace(mesh, {
-						vertices: [
-							newVertices[i+0],
-							newVertices[i+1],
-							newVertices[i+2]
-						]
-					});
-					mesh.addFaces(face);
-				}
-				return mesh;
 			}
 			// https://base64.guru/developers/javascript/examples/unicode-strings
 			// fix stupid bug with unicodes
@@ -1640,8 +1729,9 @@
 									color: var(--color-light);
 								}
 								</style>`,
-								`<a id="mt_typeface" class=""><i class="material-icons">spellcheck</i><span style="text-decoration: underline;">TypeFace converter</span></a>`,
-								`<i>when converting, <strong>disable</strong> "Reverse font direction"</i>`
+								//<i class="material-icons">spellcheck</i>
+								`<a id="mt_typeface" class=""><span style="text-decoration: underline;">TypeFace converter</span></a>`,
+								`<p class="small_text subtle" style="display: inline;">when converting a font into a typeface font using the link above, make sure to disable "Reverse font direction".</p>`
 								
 							],
 							form: {
@@ -1686,7 +1776,7 @@
 											bevelOffset: 	s.bevelOffset/16,
 											bevelSegments: 	s.bevelSegments
 										});
-										let mesh = GeometryThreeToBB(geometry);										
+										let mesh = ThreeToBB.nonIndexed(geometry);										
 										
 										mesh.init();
 										elements.push(mesh);
@@ -1695,14 +1785,15 @@
 									}
 									runEdit(out);
 
+									let s = out; // lazyness moment
 									Undo.amendEdit({
-										size: {label:"Size", type:"number", value:8,min:0},
-										height: {label:"Thickness", type:"number", value:2,min:0},
-										curveSegments: {label:"Resoultion", type:"number", value:1,min:0},
-										bevelThickness: {label:"bevelThickness", type:"number", value:0,min:0},
-										bevelSize:{label:"bevelSize", type:"number", value:8,min:0},
-										bevelOffset:{label:"bevelOffset", type:"number", value:0,min:0},
-										bevelSegments :{label:"bevelSegments", type:"number", value:1,min:0},
+										size: {label:"Size", type:"number", value:s.size,min:0},
+										height: {label:"Thickness", type:"number", value:s.height,min:0},
+										curveSegments: {label:"Resoultion", type:"number", value:s.curveSegments,min:0},
+										bevelThickness: {label:"bevelThickness", type:"number", value:s.bevelThickness,min:0},
+										bevelSize:{label:"bevelSize", type:"number", value:s.bevelSize,min:0},
+										bevelOffset:{label:"bevelOffset", type:"number", value:s.bevelOffset,min:0},
+										bevelSegments :{label:"bevelSegments", type:"number", value:s.bevelSegments,min:0},
 									}, form => {
 										runEdit(form,true)
 									})
@@ -1713,6 +1804,350 @@
 							Blockbench.openLink("http://gero3.github.io/facetype.js/");
 						}
 					}
+				})
+			);
+
+			let mtMolangParser;
+			let currentMTVariablesTextContent = '';
+			let molangScript = $('script[src="lib/molang.umd.js"]')[0];
+			//https://stackoverflow.com/questions/148441/how-can-i-get-the-content-of-the-file-specified-as-the-src-of-a-script-tag
+			function printScriptTextContent(script, cb) {
+				var xhr = new XMLHttpRequest();
+				xhr.open("GET",script.src)
+				xhr.onreadystatechange = _ => {
+					if(xhr.readyState === XMLHttpRequest.DONE && xhr.status === 200) cb(xhr.responseText);
+				};
+				xhr.send(); 
+			}
+
+			// this is so stupid
+			// just an add-in of more functions
+			printScriptTextContent(molangScript, function(f) {
+				eval(f.replace('Molang', '_Molang_').replace(`case"random_integer":return new u(125,s[0],s[1],s[2])`, `case"random_integer":return new u(125,s[0],s[1],s[2]);case 'acosh':return new u(126, s[0]);case 'asinh':return new u(127, s[0]);case 'atanh':return new u(128, s[0]);case 'cosh':return new u(129, s[0]);case 'sinh':return new u(130, s[0]);case 'tan':return new u(131, s[0]);case'tanh':return new u(132, s[0])`).replace('case 125:return r.randomInt(v(n.a),v(n.b))', 'case 125:return r.randomInt(v(n.a),v(n.b));case 126:return Math.acosh(v(n.a));case 127:return Math.asinh(v(n.a));case 128:return Math.atanh(v(n.a));case 129:return Math.cosh(v(n.a));case 130:return Math.sinh(v(n.a));case 131:return Math.tan(v(n.a));case 132:return Math.tanh(v(n.a))'))
+				mtMolangParser = new _Molang_();
+				mtMolangParser.use_radians=true;
+
+				// stolen from Animator.MolangParser.variableHandler;
+				mtMolangParser.variableHandler = function(variable) {
+					var inputs = currentMTVariablesTextContent.split(`\n`);
+					var i = 0;
+					while (i < inputs.length) {
+						let key, val;
+						[key, val] = inputs[i].split(/=(.+)/);
+						key = key.replace(/[\s;]/g, '');
+						if (key === variable && val !== undefined) {
+							val = val.trim();
+							return val[0] == `'` ? val : mtMolangParser.parse(val);
+						}
+						i++;
+					}
+				}
+			});
+			let mathFuncs = ["abs","acos","asin","atan","atan2","ceil","clamp","cos","die_roll","die_roll_integer","exp","floor","hermite_blend","lerp","lerprotate","ln","max","min","min_angle","mod","pi","pow","random","random_integer","round","sin","sqrt","trunc","acosh","asinh","atanh","cosh","sinh","tan","tanh"];
+			function mtParse(string) {
+				mathFuncs.forEach(f => {
+					if (f == 'pi')
+						string = string.replaceAll(f, "math." + f);
+					else 
+						string = string.replaceAll(f+'(', "math." + f+'(');
+				});
+				return string.replaceAll('amath.', 'a');
+			}
+			
+			// Special thanks to the Blender3d addon "Add Mesh - Extra Objects" for the inspiration! :)
+			// 				  and the presets of the addon, at: https://github.com/elfnor/blender_XYZ_surface_presets
+			// :)
+			let xyzpresets = {
+				TwistedTorus:		{x:"-cos(p.u)*(6-(5./4. + sin(3*p.v))*sin(p.v-3*p.u))",y:"-(6-(5./4. + sin(3*p.v))*sin(p.v-3*p.u))*sin(p.u)",z:"cos(p.v-3*p.u)*(5./4.+sin(3*p.v))",scale:1,uRange:[0,6.2831854820251465],uDivs:32,uWrap:!0,vRange:[0,6.2831854820251465],vDivs:16,vWrap:!0,vClose:!0},
+				Bonbon:				{x:"(p.u-3.3379)",y:"cos(p.u)*sin(p.v)",z:"cos(p.u)*cos(p.v)",scale:2,uRange:[0,6.2831854820251465],uDivs:16,uWrap:!1,vRange:[0,6.2831854820251465],vDivs:16,vWrap:!1,vClose:!1},
+				Boy:				{x:"(sq2 * cos(2*p.u)*pow(cos(p.v),2) + cos(p.u)*sin(2*p.v)) / (2 - alpha *sq2*sin(3*p.u)*sin(2*p.v))",y:"(sq2 * sin(2*p.u)*pow(cos(p.v),2) - sin(p.u)*sin(2*p.v)) / (2 - alpha *sq2*sin(3*p.u)*sin(2*p.v))",z:"(3*pow(cos(p.v),2)) / (2 - alpha*sq2*sin(3*p.u)*sin(2*p.v))",scale:4,uRange:[-1.5707963705062866,1.5707963705062866],uDivs:16,uWrap:!1,vRange:[0,3.1415927410125732],vDivs:32,vWrap:!1,vClose:!1,variables:"sq2 = 1.4142135623730951\nalpha=1"},
+				Catalan:			{x:"p.u-sin(p.u)*cosh(p.v)",y:"4*sin(1/2*p.u)*sinh(p.v/2)",z:"1-cos(p.u)*cosh(p.v)",scale:1,uRange:[-3.1415927410125732,9.42477798461914],uDivs:24,uWrap:!1,vRange:[-2,2],vDivs:8,vWrap:!1,vClose:!1},
+				Catenoid:			{x:"2*cosh(p.v/2)*cos(p.u)",y:"p.v",z:"2*cosh(p.v/2)*sin(p.u)",scale:1,uRange:[-3.1415927410125732,3.1415927410125732],uDivs:24,uWrap:!0,vRange:[-3.1415927410125732,3.1415927410125732],vDivs:8,vWrap:!1,vClose:!1},
+				CliffordTorus:		{x:"cos(p.u+p.v)/(sq2+cos(p.v-p.u))",y:"sin(p.v-p.u)/(sq2+cos(p.v-p.u))",z:"sin(p.u+p.v)/(sq2+cos(p.v-p.u))",scale:4,uRange:[0,3.1415927410125732],uDivs:8,uWrap:!1,vRange:[0,6.2831854820251465],vDivs:32,vWrap:!1,vClose:!1,variables:"sq2 = 1.4142135623730951"},
+				Cochlea:			{x:"p.v*cos(p.u)",y:"p.v*sin(p.u)",z:"(0.4*p.u-2.5383)",scale:4,uRange:[0,12.566370964050293],uDivs:16,uWrap:!1,vRange:[0,2],vDivs:16,vWrap:!1,vClose:!1},
+				Cosinus:			{x:"p.u",y:"sin(pi* ( pow(p.u,2) + pow(p.v,2) ) )/2",z:"p.v",scale:8,uRange:[-1,1],uDivs:16,uWrap:!1,vRange:[-1,1],vDivs:16,vWrap:!1,vClose:!1},
+				Dini:				{x:"radius*cos(p.u)*sin(p.v)",y:"2*(((cos(p.v)+ln(tan(p.v/2)+1E-2)) + twistrot*p.u)+3.4985)",z:"radius*sin(p.u)*sin(p.v)",scale:1,uRange:[0,4*Math.PI],uDivs:16,uWrap:!1,vRange:[0,2],vDivs:8,vWrap:!1,vClose:!1,variables:"radius = 4\ntwistrot=0.2"},
+				Enneper:			{x:"p.u -pow(p.u,3)/3  + p.u*pow(p.v,2)",y:"pow(p.u,2) - pow(p.v,2)",z:"p.v -pow(p.v,3)/3  + p.v*pow(p.u,2)",scale:1,uRange:[-2,2],uDivs:8,uWrap:!1,vRange:[-2,2],vDivs:8,vWrap:!1,vClose:!1},
+				Helicoidal:			{x:"sinh(p.v)*sin(p.u)",y:"3*p.u",z:"-sinh(p.v)*cos(p.u)",scale:1,uRange:[-3.1415927410125732,3.1415927410125732],uDivs:16,uWrap:!1,vRange:[-3.1415927410125732,3.1415927410125732],vDivs:8,vWrap:!1,vClose:!1},
+				Helix:				{x:"(1-0.1*cos(p.v))*cos(p.u)/0.1",y:"0.1*(sin(p.v) + p.u/1.7 -10)/0.1 + 5",z:"(1-0.1*cos(p.v))*sin(p.u)/0.1",scale:1,uRange:[0,12.566370964050293],uDivs:32,uWrap:!1,vRange:[0,6.2831854820251465],vDivs:8,vWrap:!1,vClose:!1},
+				Hexahedron:			{x:"pow(cos(p.v),3)*pow(cos(p.u),3)",y:"pow(sin(p.u),3)",z:"pow(sin(p.v),3)*pow(cos(p.u),3)",scale:8,uRange:[-1.2999999523162842,1.2999999523162842],uDivs:16,uWrap:!1,vRange:[0,6.2831854820251465],vDivs:16,vWrap:!1,vClose:!1},
+				Hyperhelicoidal:	{x:"(sinh(p.v)*cos(3*p.u))/(1+cosh(p.u)*cosh(p.v))",y:"(cosh(p.v)*sinh(p.u))/(1+cosh(p.u)*cosh(p.v))",z:"(sinh(p.v)*sin(3*p.u))/(1+cosh(p.u)*cosh(p.v))",scale:8,uRange:[-3.1415927410125732,3.1415927410125732],uDivs:32,uWrap:!1,vRange:[-3.1415927410125732,3.1415927410125732],vDivs:8,vWrap:!1,vClose:!1},
+				Klein:				{x:"(3*(1+sin(p.v)) + 2*(1-cos(p.v)/2)*cos(p.u))*cos(p.v)",y:"(4+2*(1-cos(p.v)/2)*cos(p.u))*sin(p.v)",z:"-2*(1-cos(p.v)/2)*sin(p.u)",scale:1,uRange:[0,6.2831854820251465],uDivs:16,uWrap:!0,vRange:[0,6.2831854820251465],vDivs:16,vWrap:!1,vClose:!1},
+				Moebius:			{x:"(cos(p.v)+p.u*cos(p.v/2)*cos(p.v))",y:"(p.u*sin(p.v/2))",z:"(sin(p.v)+p.u*cos(p.v/2)*sin(p.v))",scale:4,uRange:[-.4000000059604645,.4000000059604645],uDivs:4,uWrap:!1,vRange:[0,6.2831854820251465],vDivs:16,vWrap:!1,vClose:!1},
+				PseudoCatenoid:		{x:"2.2*(2*cosh(p.v/2)*cos(p.u))",y:"1.51166 * (2*cosh(p.v/2)*sin(p.u) * sin((2.2*(2*cosh(p.v/2)*cos(p.u)) - -11.0404)*2*pi*1/22.0513) + 1.8*(p.v) * cos((2.2*(2*cosh(p.v/2)*cos(p.u)) - -11.0404)*2*pi*1/22.0513))",z:"1.51166 * (2*cosh(p.v/2)*sin(p.u) * cos((2.2*(2*cosh(p.v/2)*cos(p.u)) - -11.0404)*2*pi*1/22.0513) - 1.8*(p.v) * sin((2.2*(2*cosh(p.v/2)*cos(p.u)) - -11.0404)*2*pi*1/22.0513))",scale:1,uRange:[-3.1415927410125732,3.1415927410125732],uDivs:32,uWrap:!1,vRange:[-3.1415927410125732,3.1415927410125732],vDivs:14,vWrap:!1,vClose:!1},
+				PseudoSphere:		{x:"cos(p.u)*cos(p.v)+sin((sin(p.u)+1)*2*pi)",y:"4*sin(p.u)",z:"cos(p.u)*sin(p.v)+cos((sin(p.u)+1)*2*pi)",scale:2,uRange:[-1.5707963705062866,1.5707963705062866],uDivs:32,uWrap:!1,vRange:[0,6.2831854820251465],vDivs:8,vWrap:!1,vClose:!1},
+				RidgedTorus:		{x:"outerradius*cos(p.u)+(ridgepower*sin(numofridges*p.u)+innerradius)*cos(p.u)*cos(p.v)",y:"outerradius*sin(p.u)+(ridgepower*sin(numofridges*p.u)+innerradius)*sin(p.u)*cos(p.v)",z:"(ridgepower*sin(numofridges*p.u)+innerradius)*sin(p.v)",scale:1,uRange:[0,6.2831854820251465],uDivs:32,uWrap:!1,vRange:[0,6.2831854820251465],vDivs:8,vWrap:!1,vClose:!1,variables:"outerradius = 5\nridgepower = 0.6\ninnerradius = 2\nnumofridges = 10"},
+				Shell:				{x:"(cos(p.v)*(1+cos(p.u))*sin(p.v/8))",y:"(sin(p.u)*sin(p.v/8)+cos(p.v/8)*1.5)",z:"(sin(p.v)*(1+cos(p.u))*sin(p.v/8))",scale:4,uRange:[0,6.2831854820251465],uDivs:8,uWrap:!0,vRange:[0,12.566370964050293],vDivs:32,vWrap:!1,vClose:!1},
+				Sine:				{x:"sin(p.u)",y:"sin(p.v)",z:"sin(p.u+p.v)",scale:8,uRange:[0,6.2831854820251465],uDivs:16,uWrap:!0,vRange:[0,6.2831854820251465],vDivs:16,vWrap:!0,vClose:!0},
+				Snake:				{x:"1.2*(1 -p.v/(2*pi))*cos(3*p.v)*(1 + cos(p.u)) + 3*cos(3*p.v)",y:"9*p.v/(2*pi) + 1.2*(1 - p.v/(2*pi))*sin(p.u)",z:"1.2*(1 -p.v/(2*pi))*sin(3*p.v)*(1 + cos(p.u)) + 3*sin(3*p.v)",scale:1,uRange:[0,6.2831854820251465],uDivs:7,uWrap:!1,vRange:[0,6.2831854820251465],vDivs:42,vWrap:!1,vClose:!1},
+				SteroSphere:		{x:"(2.*p.u/(p.u*p.u+p.v*p.v+1.))",y:"((p.u*p.u+p.v*p.v-1.)/(p.u*p.u+p.v*p.v+1.))",z:"(2*p.v/(p.u*p.u+p.v*p.v+1))",scale:8,uRange:[-2,2],uDivs:16,uWrap:!1,vRange:[-2,2],vDivs:16,vWrap:!1,vClose:!1},
+				Torus:				{x:"(1+0.5*cos(p.u))*cos(p.v)",y:"0.5*sin(p.u)",z:"(1+0.5*cos(p.u))*sin(p.v)",scale:6,uRange:[0,6.2831854820251465],uDivs:8,uWrap:!1,vRange:[0,6.2831854820251465],vDivs:12,vWrap:!1,vClose:!1}
+			};
+			generators.push(
+				new Action("xyzmathsurfacefunction", {
+					name: "XYZ Math Surface",
+					icon: "fas.fa-brain",
+					description: "Creates an xyz surface based on given inputs. Also contains already-made 23 presets!",
+					click(){
+						let options = {};
+						for (const key in xyzpresets) {
+							options[key] = key;
+						}
+						let msettings = localStorage.getItem('mt_xyzSettings');
+						let presetBeforeUpdate;
+						if (msettings != null) {
+							msettings = JSON.parse(msettings);
+							presetBeforeUpdate = msettings.preset;
+						} else {
+							msettings = xyzpresets.TwistedTorus;
+							presetBeforeUpdate = "TwistedTorus";
+						}
+						let justOpened = true;
+						let dial = new Dialog ({
+							title: "XYZ Math Surface Function",
+							part_order: ["form","lines"],
+							buttons: ["Save Settings To Memory", "Confirm","Cancel"],
+							cancelIndex: 2,
+							confirmIndex: 1,
+							onFormChange(data){
+								if (justOpened) { // this just for skipping loading saved settings
+									justOpened=false;
+									return;
+								}
+								if (data.preset == presetBeforeUpdate) return; // stop call stack
+								presetBeforeUpdate = data.preset;
+								
+								this.setFormValues(xyzpresets[data.preset]);
+							},
+							form: {
+								preset: {label:"Preset", type:"select", options},
+								x: {label:"X", type:'text', value:xyzpresets['TwistedTorus'].x},
+								y: {label:"Y", type:'text', value:xyzpresets['TwistedTorus'].y},
+								z: {label:"Z", type:'text', value:xyzpresets['TwistedTorus'].z},
+								scale: {label: "Scale", type:'number', value:1},
+								_:"_",
+								uRange: {label:"U Range", type:'vector', dimensions:2, value: [0,6.2831854820251465]},
+								uDivs: {label:"U Divisions", type:'number', min:2, value:32},
+								uWrap: {label:"U Wrap", type:"checkbox", value:true},
+								vRange: {label:"V Range", type:'vector', dimensions:2, value: [0,6.2831854820251465]},
+								vDivs: {label:"V Divisions", type:'number', min:2, value:16},
+								vWrap: {label:"V Wrap", type:"checkbox", value:true},
+								vClose: {label:"V Close", type:"checkbox", value:true},
+								__:"_",
+								variables: {label:"Variables", type:'textarea', placeholder:"List the variables you want to use via name = value"}
+							},
+							onConfirm(out){
+								out.x = mtParse(out.x);
+								out.y = mtParse(out.y);
+								out.z = mtParse(out.z);
+								currentMTVariablesTextContent = mtParse(out.variables);
+								function runEdit(s, amended=false) {
+									let elements = [];
+									Undo.initEdit({elements, selection: true}, amended);
+									let mesh = new Mesh({vertices:{}});
+									
+									let [umin,umax] = out.uRange;
+									let usteps = s.uDivs;
+									let uinc = (umax - umin)/usteps;
+									
+									let [vmin,vmax] = out.vRange;
+									let vsteps = s.vDivs;
+									let vinc = (vmax - vmin)/vsteps;
+									
+									let uRange = usteps+1;
+									let vRange = vsteps+1;
+									if (out.uWrap) uRange -= 1;
+									if (out.vWrap) vRange -= 1;
+
+									let vertices = [];
+									let uvPositions = [];
+									for (let j = 0; j < vRange; j++) {
+										let v = vmin + (j*vinc);;
+										for (let i = 0; i < uRange; i++) {
+											let u = umin + (i*uinc);
+											
+											mtMolangParser.global_variables = {'p.u': u,'p.v': v};
+
+											let x = mtMolangParser.parse(out.x) * out.scale;
+											let y = mtMolangParser.parse(out.y) * out.scale;
+											let z = mtMolangParser.parse(out.z) * out.scale;
+											vertices.push(mesh.addVertices([x,y,z])[0]);
+											uvPositions.push([i,j])
+										}
+									}
+									for (let y = 0; y < vsteps; y++) {
+										for (let x = 0; x < usteps; x++) {
+											yNext = y+1;
+											xNext = x+1;
+											
+											if (out.vWrap && yNext >= vRange) yNext = 0;
+											if (out.uWrap && xNext >= uRange) xNext = 0;
+
+											let vertexIndices = [
+												(yNext * uRange) + xNext,
+												(yNext * uRange) + x,
+												(y * uRange) + x,
+												(y * uRange) + xNext
+											]
+											let face = new MeshFace(mesh, {
+												vertices: [
+													vertices[vertexIndices[0]],
+													vertices[vertexIndices[1]],
+													vertices[vertexIndices[2]],
+													vertices[vertexIndices[3]],											
+												],
+											});
+											let uv = [
+												uvPositions[vertexIndices[0]].slice().V3_divide(uRange-1,vRange-1).V3_multiply(Project._texture_width,Project._texture_height),
+												uvPositions[vertexIndices[1]].slice().V3_divide(uRange-1,vRange-1).V3_multiply(Project._texture_width,Project._texture_height),
+												uvPositions[vertexIndices[2]].slice().V3_divide(uRange-1,vRange-1).V3_multiply(Project._texture_width,Project._texture_height),
+												uvPositions[vertexIndices[3]].slice().V3_divide(uRange-1,vRange-1).V3_multiply(Project._texture_width,Project._texture_height)
+											]
+											face.uv[face.vertices[0]] = [uv[0][0],uv[0][1]];
+											face.uv[face.vertices[1]] = [uv[1][0],uv[1][1]];
+											face.uv[face.vertices[2]] = [uv[2][0],uv[2][1]];
+											face.uv[face.vertices[3]] = [uv[3][0],uv[3][1]];
+											mesh.addFaces(face);
+										}
+									}
+									delete uvPositions;
+									// fills end caps
+									if (out.vClose && out.uWrap && !out.vWrap) {
+										for (let x = 1; x < usteps-1; x++) {
+											let face1 = new MeshFace(mesh, {vertices: [
+												vertices[usteps - 1],
+												vertices[usteps - 1 - x],
+												vertices[usteps - 2 - x],							
+											]});
+											let face2 = new MeshFace(mesh, {vertices: [
+												vertices[vsteps * uRange],
+												vertices[vsteps * uRange + x],
+												vertices[vsteps * uRange + x + 1],							
+											]});
+											mesh.addFaces(face1, face2);
+										}
+									}
+									mesh.init();
+									elements.push(mesh);
+									mesh.select();
+									Undo.finishEdit('Generate Mesh');
+								}
+								runEdit(out);
+								Undo.amendEdit({
+									uDivs: {label: "U divisions", value: out.uDivs, min:2},
+									vDivs: {label: "V divisions", value: out.vDivs, min:2}
+								}, form => {
+									runEdit(form,true)
+								})
+							}
+						})
+						dial.show();
+						if(msettings != null) {
+							dial.setFormValues(msettings);
+						}
+
+						let saveBtn = $(`button:contains("Save Settings To Memory")`);
+						saveBtn.off("click");
+						saveBtn.on("click", function() {
+							let mmsettings = dial.getFormResult();
+							localStorage.setItem("mt_xyzSettings", JSON.stringify(mmsettings));
+						});
+					}
+				})
+			);
+			let quickPrimitives = [];
+			let quickPrimitivesI = "offline_bolt";
+			quickPrimitives.push(
+				new Action("polyhedron", {
+					name: "Polyhedron",
+					icon: quickPrimitivesI,
+					click(){
+						new Dialog ({
+							title: "Quick Primitive [ Polyhedron ]",
+							form: {
+								select: {label: "Hedron", type:"select", options: {Icosahedron:"Icosahedron", Dodecahedron:"Dodecahedron",Octahedron:"Octahedron", Tetrahedron:"Tetrahedron"}},
+								radius: {label: "Radius", value: 8, type:'number'},
+								detail: {label: "Detail", value: 2, min:1,max:6, type:'number'}
+							},
+							onConfirm(out){
+								function runEdit(s, amended=false) {
+									let elements = [];
+									Undo.initEdit({elements, selection: true}, amended);
+									const geometry = new THREE[out.select + 'BufferGeometry'](s.radius, s.detail-1);
+									let mesh = ThreeToBB.nonIndexed(geometry);										
+									
+									mesh.init();
+									elements.push(mesh);
+									mesh.select();
+									UVEditor.setAutoSize(null, true, Object.keys(mesh.faces));
+									UVEditor.selected_faces.empty();
+									Undo.finishEdit('Generate Mesh');
+								}
+								runEdit(out);
+								Undo.amendEdit({
+									radius: {label: "Radius", value: out.radius},
+									detail: {label: "Detail", value: out.detail, min:1,max:6}
+								}, form => {
+									runEdit(form,true)
+								})
+							}
+						}).show();
+					}
+				})
+			);
+			quickPrimitives.push(
+				new Action("torusknot", {
+					name: "Torus Knot",
+					icon: quickPrimitivesI,
+					click(){
+						new Dialog ({
+							title: "Quick Primitive [ Torus Knot ]",
+							lines: [`<p class="small_text subtle" style="display: inline;">P and Q should be coprime integers meaning non should be divisible by the other.</p>`],
+							form: {
+								r: {label:"Torus Radius", type:"number", value:8},
+								t:   {label:"Tube Radius", type:"number", value:3.4, step:.2},
+								ts:   {label:"Tubular Segments", type:"number", value:25},
+								rs :   {label:"Radial Segments", type:"number", value:5},
+								p:   {label:"P", type:"number", value:2},
+								q :  {label:"Q", type:"number", value:3},
+							},
+							onConfirm(out){
+								function runEdit(s, amended=false) {
+									let elements = [];
+									Undo.initEdit({elements, selection: true}, amended);
+									const geometry = new THREE.TorusKnotBufferGeometry(s.r,s.t,s.ts,s.rs,s.p,s.q);
+									let mesh = ThreeToBB.indexed(geometry, true);										
+									
+									mesh.init();
+									elements.push(mesh);
+									mesh.select();
+									UVEditor.setAutoSize(null, true, Object.keys(mesh.faces));
+									UVEditor.selected_faces.empty();
+									Undo.finishEdit('Generate Mesh');
+								}
+								runEdit(out);
+								let s = out;
+
+								Undo.amendEdit({
+									r: {label:"Torus Radius", type:"number", value:s.r},
+									t:   {label:"Tube Radius", type:"number", value:s.t, step:.2},
+									ts:   {label:"Tubular Segments", type:"number", value:s.ts},
+									rs :   {label:"Radial Segments", type:"number", value:s.rs},
+									p:   {label:"P", type:"number", value:s.p},
+									q :  {label:"Q", type:"number", value:s.q},
+								}, form => {
+									runEdit(form,true)
+								})
+							}
+						}).show();
+					}
+				})
+			);
+			generators.push(
+				new Action("quickprimitives", {
+					name: "Quick Primitives",
+					icon: "fas.fa-shapes",
+					children: quickPrimitives
 				})
 			);
 

@@ -49,7 +49,7 @@
 		"author": "SnaveSutit & FetchBot",
 		"icon": "icon-armor_stand",
 		"description": "Generates smooth animations for vanilla java edition using a data pack, a resource pack, and lots of armor stands.\n\"Let the java mobs dance too!\"",
-		"version": "0.2.2",
+		"version": "0.2.4",
 		"variant": "desktop",
 		"tags": ["Minecraft: Java Edition", "Animation","Armor Stand"]
 	},
@@ -205,12 +205,12 @@
 		"title": "CEM Template Loader",
 		"icon": "keyboard_capslock",
 		"author": "Ewan Howell",
-		"description": "Load template Java Edition entity models for use with OptiFine CEM.",
-		"about": "CEM Template Loader can be used to load the vanilla entity models for Minecraft: Java Edition, so you can use them in OptiFine CEM, or as texturing templates.\n\nTo use this plugin, head to the \"Tools\" tab and select \"CEM Template Loader\". From here, select the model that you would like to edit and load it.\n\nAfter editing your model, export it as an OptiFine JEM to the folder \"assets/minecraft/optifine/cem\". If a texture is used in the model, make sure it saves with a valid file path.\n\nImportant\n\nWhen editing an entity model, you cannot rotate parent bones, or move the pivot points of parent bones (top level folders), as this can break your model. If you need to rotate, use a subbone. If you need to change pivot points, use custom animations.",
+		"description": "Load template Java Edition entity models for use with OptiFine CEM. Also includes an animation editor, so that you can create custom entity animations.",
+		"about": "CEM Template Loader can be used to load the vanilla entity models for Minecraft: Java Edition, so you can use them in OptiFine CEM, or as texturing templates.\n\nTo use this plugin, head to the \"Tools\" tab and select \"CEM Template Loader\". From here, select the model that you would like to edit and load it.\n\nAfter editing your model, export it as an OptiFine JEM to the folder \"assets/minecraft/optifine/cem\". If a texture is used in the model, make sure it saves with a valid file path.\n\nImportant\n\nWhen editing an entity model, you cannot rotate root groups (top level folders), or move the pivot points of root groups, as this can break your model. If you need to rotate a root group, use a subgroup. If you need to change a root group's pivot point, use CEM animations.\n\nCEM Template Loader also includes an animation editor, so that you can create custom entity animations.",
 		"tags": ["Minecraft: Java Edition", "OptiFine", "Templates"],
 		"variant": "both",
-		"min_version": "4.0.0",
-		"version": "5.11.0"
+		"min_version": "4.2.0",
+		"version": "6.0.4"
 	},
 	"threecore_exporter": {
 		"title": "ThreeCore Exporter",
@@ -382,7 +382,7 @@
 		"icon": "fas.fa-hat-wizard",
 		"description": "Create entities for Minecraft: Bedrock Edition! Start with the looks and behavior of a vanilla entity, and turn it into your own creation!",
 		"tags": ["Minecraft: Bedrock Edition"],
-		"version": "1.0.6",
+		"version": "1.0.7",
 		"min_version": "3.7.0",
 		"variant": "both"
 	},
@@ -436,8 +436,8 @@
 		"icon": "fas.fa-vector-square",
 		"author": "Malik12tree",
 		"description": "Adds helpful Modeling Tools, Operators and Generators for Meshs!",
-		"version": "1.0.0",
-		"about": "`Modeling Tools:`\n**To Sphere**: Casts selected vertices into a sphere based on an influence.\n**Poke Faces**: Creates a Fan out of selected faces.\n**Triangles To Quads**: Trys to dissolve adjacent triangles into a quad.\n**Triangulate Faces**: Cuttes a face into triangles.\n**UV Mapping [Project From View]**: Creates a UV map based on the vertice's position on the screen from the camera.\n**UV Mapping [Cubic Projection]**: Creates a UV map based on the sides of a cube.\n`Modeling Operators:`\n**Subdivide**: Splits the faces of a mesh into smaller faces, giving it a smooth appearance.\n**Split Edges**: Splits and duplicates edges within a mesh, breaking 'links' between faces around those split edges.\n**Scatter**: Scatters selected meshs on the active mesh.\n**Array**: Creates an array of copies of the base object, with each copy being offset from the previous one.\n`Mesh Generators:`\n**Terrain**: Generates Terrains procedurally with fully customized settings.\n**Terrain Style Editor**: Configure the values of the style `Custom` for the Terrain Generator.\n**Text Mesh**: Generate a mesh representation of a text with Opentype Fonts and custom settings.\n*An OpenType Font is a format for scalable computer fonts that are stored in JSON files, a good converter is `http://gero3.github.io/facetypejs/`*",
+		"version": "1.0.2",
+		"about": "`Modeling Tools:`\n**To Sphere**: Casts selected vertices into a sphere based on an influence.\n**Poke Faces**: Creates a Fan out of selected faces.\n**Triangles To Quads**: Trys to dissolve adjacent triangles into a quad.\n**Triangulate Faces**: Cuttes a face into triangles.\n**UV Mapping [Project From View]**: Creates a UV map based on the vertice's position on the screen from the camera.\n**UV Mapping [Cubic Projection]**: Creates a UV map based on the sides of a cube.\n`Modeling Operators:`\n**Subdivide**: Splits the faces of a mesh into smaller faces, giving it a smooth appearance.\n**Split Edges**: Splits and duplicates edges within a mesh, breaking 'links' between faces around those split edges.\n**Scatter**: Scatters selected meshs on the active mesh.\n**Array**: Creates an array of copies of the base object, with each copy being offset from the previous one.\n`Mesh Generators:`\n**Terrain**: Generates Terrains procedurally with fully customized settings.\n**Terrain Style Editor**: Configure the values of the style `Custom` for the Terrain Generator.\n**Text Mesh**: Generate a mesh representation of a text with Opentype Fonts and custom settings.\n*An OpenType Font is a format for scalable computer fonts that are stored in JSON files, a good converter is `http://gero3.github.io/facetypejs/`*\n**XYZ Math Surface Function**: Creates an xyz surface based on given inputs. Also contains already-made 12 presets!\n**Quick Primitives [Polyhedron]**: generate the basic 4 regular polyhedron with custom detail.\n**Quick Primitives [Torus Knot]**: generates a p-q torus knot with custom settings.\n",
 		"variant": "both",
         	"tags": ["Format: Generic Model", "Edit"]
   	},
@@ -449,6 +449,17 @@
 		"about": "The WASD mode can be enabled from the View menu.\nThe keys can be remapped in the keybindings menu.\nThe sensitivity can be changed in the settings under Preview.",
 		"version": "1.0.0",
 		"min_version": "4.1.0",
+		"variant": "both"
+	},
+	"skin_packager": {
+		"title": "Minecraft Skin Pack Packager",
+		"author": "JannisX11",
+		"icon": "icon-player",
+		"description": "Create Skin Packs for the Minecraft Marketplace",
+		"about": "Generates skin packs for the Minecraft Marketplace.\nAll textures in all open tabs count as skins. You can load individual skins into Blockbench via **File** > **Import Minecraft Skins**.\nYou can also create new skins via **New** > **Minecraft Skin**, in the File menu or on the start screen.\nExport a skin pack via **File** > **Export** > **Export Skin Pack**.",
+		"tags": ["Minecraft: Bedrock Edition", "Minecraft Marketplace"],
+		"version": "0.1.2",
+		"min_version": "4.2.3",
 		"variant": "both"
 	}
 }

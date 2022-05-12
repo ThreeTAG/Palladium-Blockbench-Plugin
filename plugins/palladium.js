@@ -93,7 +93,7 @@
                 const dimensions = cube.dimensions;
                 const textureOffset = cube.texture_offset ? cube.texture_offset : [0, 0];
                 const textureScale = cube.texture_scale ? cube.texture_scale : [0, 0];
-                const deformation = cube.deformation ? cube.deformation : [1, 1, 1];
+                const deformation = cube.deformation ? cube.deformation : [0, 0, 0];
                 const mirror = cube.mirror;
 
                 let pos = cubeOrigin;
@@ -142,7 +142,6 @@
                 children[node.name] = serializePart(node, bOrigin);
             } else if (node instanceof Cube) {
                 if (node.parent !== part) {
-                    console.log('wech damit');
                     continue;
                 }
 

@@ -10,33 +10,27 @@
         remember: true,
         compile: function () {
             let compiled = {};
+
             compiled.texture_width = Project.texture_width;
             compiled.texture_height = Project.texture_height;
 
-            let mesh = {};
-
+            compiled.mesh = {};
             for (node of Outliner.root) {
                 if (node instanceof Group) {
-                    mesh[node.name] = serializePart(node, [0, 0, 0]);
+                    compiled.mesh[node.name] = compileBone(node, [0, 0, 0]);
                 }
             }
-
-            compiled.mesh = mesh;
-
-            console.log(compiled);
-            console.log(mesh);
 
             return JSON.stringify(compiled, null, 4);
         },
         load(model, file) {
             Project.texture_width = model.texture_width;
             Project.texture_height = model.texture_height;
+            let bones = model.mesh;
 
-            Object.entries(model.mesh).forEach(item => {
-                const name = item[0];
-                const part = item[1];
-                parsePart(name, part, [0, 0, 0]);
-            });
+            for (key in bones) {
+                addBone(undefined, [0, 0, 0], key, bones[key]);
+            }
         },
         export_action: new Action("export_palladium_entity", {
             name: 'Export Palladium Entity Model',
@@ -73,103 +67,120 @@
         }
     });
 
-    function parsePart(name, json, pOrigin, parent = null) {
+    function addBone(parent, pOrigin, key, bone) {
+        let gopts = {name: key, children: []};
+
         let origin = pOrigin;
-        const offset = json.part_pose && json.part_pose.offset ? json.part_pose.offset : [0, 0, 0];
-        origin = [origin[0] + offset[0], origin[1] + offset[1], origin[2] + offset[2]];
-        const rotation = json.part_pose && json.part_pose.rotation ? json.part_pose.rotation : [0, 0, 0];
-        const group = new Group(
-            {
-                name: name,
-                origin: flipY(origin),
-                rotation: rotation,
+        if ("part_pose" in bone) {
+            if ("offset" in bone.part_pose) {
+                let bor = bone.part_pose.offset;
+                origin = [origin[0] + bor[0], origin[1] + bor[1], origin[2] + bor[2]];
             }
-        ).addTo(parent);
-        group.init();
+            if ("rotation" in bone.part_pose) {
+                let rot = bone.part_pose.rotation;
+                gopts.rotation = [-rot[0], -rot[1], rot[2]];
+            }
+        }
+        gopts.origin = flipCoords(origin);
 
-        if (json.cubes) {
-            json.cubes.forEach(cube => {
-                const cubeOrigin = cube.origin;
-                const dimensions = cube.dimensions;
-                const textureOffset = cube.texture_offset ? cube.texture_offset : [0, 0];
-                const textureScale = cube.texture_scale ? cube.texture_scale : [0, 0];
-                const deformation = cube.deformation ? cube.deformation : [0, 0, 0];
-                const mirror = cube.mirror;
+        let group = new Group(gopts);
 
-                let pos = cubeOrigin;
-                pos = [pos[0] + origin[0], pos[1] + origin[1], pos[2] + origin[2]]
-
-                cube = new Cube({
-                    mirror_uv: mirror,
-                    name: 'cube',
-                    inflate: deformation[0],
-                    from: flipY([pos[0], pos[1] + dimensions[1], pos[2]]),
-                    to: flipY([pos[0] + dimensions[0], pos[1], pos[2] + dimensions[2]]),
-                    uv_offset: textureOffset
-                });
-                cube.init();
-
-                cube.addTo(group);
-            });
+        if (parent !== undefined) {
+            group.addTo(parent);
         }
 
-        if (json.children) {
-            Object.entries(json.children).forEach(item => {
-                const name = item[0];
-                const part = item[1];
-                parsePart(name, part, origin, group);
-            });
+        group = group.init();
+
+        for (cuboid of bone.cubes) {
+            let copts = {name: "cube"};
+
+            if ("name" in cuboid) {
+                copts.name = cuboid.name;
+            }
+            if ("deformation" in cuboid) {
+                copts.inflate = cuboid.deformation[0];
+            }
+            if ("mirror" in cuboid) {
+                copts.mirror_uv = cuboid.mirror;
+            }
+
+            let pos = cuboid.origin;
+            pos = [pos[0] + origin[0], pos[1] + origin[1], pos[2] + origin[2]]
+            let size = cuboid.dimensions;
+            copts.to = flipCoords([pos[0], pos[1], pos[2] + size[2]]);
+            copts.from = flipCoords([pos[0] + size[0], pos[1] + size[1], pos[2]]);
+
+            copts.uv_offset = cuboid.texture_offset;
+
+            new Cube(copts).addTo(group).init();
+        }
+
+        for (ckey in bone.children) {
+            addBone(group, origin, ckey, bone.children[ckey]);
         }
     }
 
-    function serializePart(part, pOrigin) {
+    function compileBone(bone, pOrigin) {
         let compiled = {};
-        let bOrigin = flipY(part.origin);
-        let origin = [bOrigin[0] - pOrigin[0], bOrigin[1] - pOrigin[1], bOrigin[2] - pOrigin[2]];
 
-        compiled.part_pose = {};
-        compiled.part_pose.offset = origin;
-        compiled.part_pose.rotation = part.rotation;
+        let bOrigin = flipCoords(bone.origin); // bone origin
+        let origin = [bOrigin[0] - pOrigin[0], bOrigin[1] - pOrigin[1], bOrigin[2] - pOrigin[2]]; // origin to write to json
+
+        if (!isZero(origin)) {
+            if (!("part_pose" in compiled)) compiled.part_pose = {};
+            compiled.part_pose.offset = origin;
+        }
+
+        let brot = bone.rotation;
+        let rotation = [-brot[0], -brot[1], brot[2]];
+        console.log(rotation);
+        if (!isZero(rotation)) {
+            if (!("part_pose" in compiled)) compiled.part_pose = {};
+            compiled.part_pose.rotation = rotation;
+        }
 
         compiled.cubes = [];
-        let children = {};
 
-        for (node of part.children) {
+        let children = {}
+        for (node of bone.children) {
             if (node instanceof Group) {
-                if (node.parent !== part) {
-                    continue;
-                }
-                children[node.name] = serializePart(node, bOrigin);
-            } else if (node instanceof Cube) {
-                if (node.parent !== part) {
+                if (node.parent !== bone) {
                     continue;
                 }
 
-                let cube = {};
+                children[node.name] = compileBone(node, bOrigin);
+            }
+            if (node instanceof Cube) {
+                if (node.parent !== bone) {
+                    continue;
+                }
+
+                let cuboid = {}
 
                 if (node.name !== "cube") {
-                    cube.name = node.name;
+                    cuboid.name = node.name;
                 }
 
                 let to = node.to;
                 let from = node.from;
+
                 let size = [to[0] - from[0], to[1] - from[1], to[2] - from[2]];
-                let pos = flipY([from[0], from[1] + size[1], from[2]]);
-                cube.origin = [pos[0] - bOrigin[0], pos[1] - bOrigin[1], pos[2] - bOrigin[2]];
-                cube.dimensions = size;
-                cube.texture_offset = node.uv_offset;
+                let pos = flipCoords([from[0] + size[0], from[1] + size[1], from[2]]);
+
+                cuboid.origin = [pos[0] - bOrigin[0], pos[1] - bOrigin[1], pos[2] - bOrigin[2]];
+                cuboid.dimensions = size;
+                cuboid.texture_offset = node.uv_offset;
 
                 if (node.mirror_uv) {
-                    cube.mirror = true;
+                    cuboid.mirror = true;
                 }
                 if (node.inflate > 0) {
-                    cube.deformation = [node.inflate, node.inflate, node.inflate];
+                    cuboid.deformation = [node.inflate, node.inflate, node.inflate];
                 }
 
-                compiled.cubes.push(cube);
+                compiled.cubes.push(cuboid);
             }
         }
-
         if (children !== {}) {
             compiled.children = children;
         }
@@ -186,7 +197,20 @@
         variant: 'both',
     });
 
+    function flipCoords(vec) {
+        return [-vec[0], -vec[1], vec[2]];
+    }
+
     function flipY(vec) {
         return [vec[0], -vec[1], vec[2]];
+    }
+
+    function isZero(vec) {
+        for (c of vec) {
+            if (c !== 0) {
+                return false;
+            }
+        }
+        return true;
     }
 })();

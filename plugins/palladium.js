@@ -174,7 +174,7 @@
                 if (node.mirror_uv) {
                     cuboid.mirror = true;
                 }
-                if (node.inflate > 0) {
+                if (node.inflate !== 0) {
                     cuboid.deformation = [node.inflate, node.inflate, node.inflate];
                 }
 
